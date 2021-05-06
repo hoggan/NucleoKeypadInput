@@ -77,6 +77,8 @@ void Error_Handler(void);
 /* USER CODE BEGIN Private defines */
 
     uint8_t scanKeypad(void);
+    void disableRow(GPIO_TypeDef* gpiox, uint16_t pin);
+    void enableRow(GPIO_TypeDef* gpiox, uint16_t pin);
     GPIO_PinState checkRow1(void);
     GPIO_PinState checkRow2(void);
     void setAllRows(void);

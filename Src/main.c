@@ -258,13 +258,24 @@ uint8_t scanKeypad(void)
 
         if (col1State == GPIO_PIN_SET)
         {
-            if (checkRow1() == GPIO_PIN_SET)
+            disableRow(row2_GPIO_Port, row2_Pin);
+            pinState = debounce(col1_GPIO_Port, col1_Pin);
+            enableRow(row2_GPIO_Port, row2_Pin);
+
+            if (pinState == GPIO_PIN_SET)
             {
                 result = 1;
             }
-            else if (checkRow2() == GPIO_PIN_SET)
+            else
             {
-                result = 2;
+                disableRow(row1_GPIO_Port, row1_Pin);
+                pinState = debounce(col1_GPIO_Port, col1_Pin);
+                enableRow(row1_GPIO_Port, row1_Pin);
+
+                if (pinState == GPIO_PIN_SET)
+                {
+                    result = 2;
+                }
             }
         }        
     }
@@ -280,14 +291,25 @@ uint8_t scanKeypad(void)
 
             if (col2State == GPIO_PIN_SET)
             {
-                if (checkRow1() == GPIO_PIN_SET)
+                disableRow(row2_GPIO_Port, row2_Pin);
+                pinState = debounce(col2_GPIO_Port, col2_Pin);
+                enableRow(row2_GPIO_Port, row2_Pin);
+
+                if (pinState == GPIO_PIN_SET)
                 {
-                    result = 4;
+                    result = 3;
                 }
-                else if (checkRow2() == GPIO_PIN_SET)
+                else
                 {
-                    result = 5;
-                }
+                    disableRow(row1_GPIO_Port, row1_Pin);
+                    pinState = debounce(col2_GPIO_Port, col2_Pin);
+                    enableRow(row1_GPIO_Port, row1_Pin);
+
+                    if (pinState == GPIO_PIN_SET)
+                    {
+                        result = 4;
+                    }
+                }                
             }
         }
     }
@@ -295,6 +317,35 @@ uint8_t scanKeypad(void)
     resetAllRows();
 
     return result;
+}
+
+void disableRow(GPIO_TypeDef* gpiox, uint16_t pin)
+{
+    GPIO_InitTypeDef GPIO_InitStruct = {0};
+
+    uint64_t moder = gpiox->MODER;
+    HAL_GPIO_WritePin(gpiox, pin, GPIO_PIN_RESET);
+    GPIO_InitStruct.Pin = pin;
+    GPIO_InitStruct.Mode = GPIO_MODE_INPUT;
+    GPIO_InitStruct.Pull = GPIO_NOPULL;
+    HAL_GPIO_Init(GPIOD, &GPIO_InitStruct);
+    moder = gpiox->MODER;
+    HAL_Delay(1);
+}
+
+void enableRow(GPIO_TypeDef* gpiox, uint16_t pin)
+{
+    GPIO_InitTypeDef GPIO_InitStruct = {0};
+
+    uint64_t moder = gpiox->MODER;
+    GPIO_InitStruct.Pin = pin;
+    GPIO_InitStruct.Mode = GPIO_MODE_OUTPUT_PP;
+    GPIO_InitStruct.Pull = GPIO_NOPULL;
+    GPIO_InitStruct.Speed = GPIO_SPEED_FREQ_LOW;
+    HAL_GPIO_Init(GPIOD, &GPIO_InitStruct);
+    moder = gpiox->MODER;
+    HAL_GPIO_WritePin(gpiox, pin, GPIO_PIN_SET);
+    HAL_Delay(1);
 }
 
 GPIO_PinState checkRow1(void)
@@ -311,8 +362,8 @@ GPIO_PinState checkRow1(void)
     result = HAL_GPIO_ReadPin(col1_GPIO_Port, col1_Pin);
 
     row2_GPIO_Port->MODER &= ~row2_Pin;
+    HAL_GPIO_WritePin(row2_GPIO_Port, row2_Pin, GPIO_PIN_SET);
     HAL_Delay(1);
-    HAL_GPIO_WritePin(row2_GPIO_Port, row2_Pin, GPIO_PIN_RESET);
 
     return result;
 }
@@ -331,8 +382,8 @@ GPIO_PinState checkRow2(void)
     result = HAL_GPIO_ReadPin(col2_GPIO_Port, col2_Pin);
 
     row1_GPIO_Port->MODER &= ~row1_Pin;
+    HAL_GPIO_WritePin(row1_GPIO_Port, row1_Pin, GPIO_PIN_SET);
     HAL_Delay(1);
-    HAL_GPIO_WritePin(row1_GPIO_Port, row1_Pin, GPIO_PIN_RESET);
 
     return result;
 }
