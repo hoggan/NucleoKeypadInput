@@ -274,7 +274,7 @@ uint8_t scanKeypad(void)
 
                 if (pinState == GPIO_PIN_SET)
                 {
-                    result = 2;
+                    result = 3;
                 }
             }
         }        
@@ -297,7 +297,7 @@ uint8_t scanKeypad(void)
 
                 if (pinState == GPIO_PIN_SET)
                 {
-                    result = 3;
+                    result = 2;
                 }
                 else
                 {
