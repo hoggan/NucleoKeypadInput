@@ -64,23 +64,34 @@ void Error_Handler(void);
 #define Green_LED_GPIO_Port GPIOB
 #define Red_LED_Pin GPIO_PIN_14
 #define Red_LED_GPIO_Port GPIOB
-#define row1_Pin GPIO_PIN_3
-#define row1_GPIO_Port GPIOD
-#define row2_Pin GPIO_PIN_4
-#define row2_GPIO_Port GPIOD
-#define col1_Pin GPIO_PIN_5
-#define col1_GPIO_Port GPIOD
-#define col2_Pin GPIO_PIN_6
-#define col2_GPIO_Port GPIOD
+#define R3_Pin GPIO_PIN_11
+#define R3_GPIO_Port GPIOD
+#define R2_Pin GPIO_PIN_12
+#define R2_GPIO_Port GPIOD
+#define R1_Pin GPIO_PIN_13
+#define R1_GPIO_Port GPIOD
+#define R4_Pin GPIO_PIN_2
+#define R4_GPIO_Port GPIOD
+#define BL_Pin GPIO_PIN_3
+#define BL_GPIO_Port GPIOD
+#define C1_Pin GPIO_PIN_5
+#define C1_GPIO_Port GPIOD
+#define C2_Pin GPIO_PIN_6
+#define C2_GPIO_Port GPIOD
+#define C3_Pin GPIO_PIN_7
+#define C3_GPIO_Port GPIOD
 #define Blue_LED_Pin GPIO_PIN_7
 #define Blue_LED_GPIO_Port GPIOB
 /* USER CODE BEGIN Private defines */
 
+#define COLUMNS 3
+#define ROWS    5
+
     uint8_t scanKeypad(void);
+    uint8_t findRow(GPIO_TypeDef* gpiox, uint16_t colPin);
+    uint8_t getResult(uint16_t rowPin, uint16_t colPin);
     void disableRow(GPIO_TypeDef* gpiox, uint16_t pin);
     void enableRow(GPIO_TypeDef* gpiox, uint16_t pin);
-    GPIO_PinState checkRow1(void);
-    GPIO_PinState checkRow2(void);
     void setAllRows(void);
     void resetAllRows(void);
     GPIO_PinState debounceUser(void);
