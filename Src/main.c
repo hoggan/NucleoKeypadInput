@@ -379,12 +379,18 @@ void enableRow(GPIO_TypeDef* gpiox, uint16_t pin)
 
 void setAllRows(void)
 {
-    HAL_GPIO_WritePin(GPIOD, R1_Pin | R2_Pin | R3_Pin | R4_Pin, GPIO_PIN_SET);
+    HAL_GPIO_WritePin(R1_GPIO_Port, R1_Pin, GPIO_PIN_SET);
+    HAL_GPIO_WritePin(R2_GPIO_Port, R2_Pin, GPIO_PIN_SET);
+    HAL_GPIO_WritePin(R3_GPIO_Port, R3_Pin, GPIO_PIN_SET);
+    HAL_GPIO_WritePin(R4_GPIO_Port, R4_Pin, GPIO_PIN_SET);
 }
 
 void resetAllRows(void)
 {
-    HAL_GPIO_WritePin(GPIOD, R1_Pin | R2_Pin | R3_Pin | R4_Pin, GPIO_PIN_RESET);
+    HAL_GPIO_WritePin(R1_GPIO_Port, R1_Pin, GPIO_PIN_RESET);
+    HAL_GPIO_WritePin(R2_GPIO_Port, R2_Pin, GPIO_PIN_RESET);
+    HAL_GPIO_WritePin(R3_GPIO_Port, R3_Pin, GPIO_PIN_RESET);
+    HAL_GPIO_WritePin(R4_GPIO_Port, R4_Pin, GPIO_PIN_RESET);
 }
 
 GPIO_PinState debounce(GPIO_TypeDef* gpiox, uint16_t pin)
