@@ -19,9 +19,13 @@
 /* USER CODE END Header */
 /* Includes ------------------------------------------------------------------*/
 #include "main.h"
+#include "usb_device.h"
 
 /* Private includes ----------------------------------------------------------*/
 /* USER CODE BEGIN Includes */
+
+#include "usbd_cdc_if.h"
+#include "string.h"
 
 /* USER CODE END Includes */
 
@@ -85,6 +89,7 @@ int main(void)
 
   /* Initialize all configured peripherals */
   MX_GPIO_Init();
+  MX_USB_DEVICE_Init();
   /* USER CODE BEGIN 2 */
 
   /* USER CODE END 2 */
@@ -155,8 +160,10 @@ int main(void)
 
       //test(activeLED);
 
-      if (userPress == 1)
+      scanKeypad();
+      /*if (userPress == 1)
       {
+          //CDC_Transmit_FS("Hello ", 6);
           uint8_t pressedKey = scanKeypad();
           if (pressedKey != 255)
           {
@@ -166,9 +173,9 @@ int main(void)
           {
               indicate(0);
           }
-      }
+          }*/
 
-      HAL_Delay(10);
+      HAL_Delay(50);
 
     /* USER CODE END WHILE */
 
@@ -192,7 +199,12 @@ void SystemClock_Config(void)
   RCC_OscInitStruct.OscillatorType = RCC_OSCILLATORTYPE_HSI;
   RCC_OscInitStruct.HSIState = RCC_HSI_ON;
   RCC_OscInitStruct.HSICalibrationValue = RCC_HSICALIBRATION_DEFAULT;
-  RCC_OscInitStruct.PLL.PLLState = RCC_PLL_NONE;
+  RCC_OscInitStruct.PLL.PLLState = RCC_PLL_ON;
+  RCC_OscInitStruct.PLL.PLLSource = RCC_PLLSOURCE_HSI;
+  RCC_OscInitStruct.PLL.PLLM = 13;
+  RCC_OscInitStruct.PLL.PLLN = 195;
+  RCC_OscInitStruct.PLL.PLLP = RCC_PLLP_DIV2;
+  RCC_OscInitStruct.PLL.PLLQ = 5;
   if (HAL_RCC_OscConfig(&RCC_OscInitStruct) != HAL_OK)
   {
     Error_Handler();
@@ -201,12 +213,12 @@ void SystemClock_Config(void)
   */
   RCC_ClkInitStruct.ClockType = RCC_CLOCKTYPE_HCLK|RCC_CLOCKTYPE_SYSCLK
                               |RCC_CLOCKTYPE_PCLK1|RCC_CLOCKTYPE_PCLK2;
-  RCC_ClkInitStruct.SYSCLKSource = RCC_SYSCLKSOURCE_HSI;
+  RCC_ClkInitStruct.SYSCLKSource = RCC_SYSCLKSOURCE_PLLCLK;
   RCC_ClkInitStruct.AHBCLKDivider = RCC_SYSCLK_DIV1;
-  RCC_ClkInitStruct.APB1CLKDivider = RCC_HCLK_DIV1;
-  RCC_ClkInitStruct.APB2CLKDivider = RCC_HCLK_DIV1;
+  RCC_ClkInitStruct.APB1CLKDivider = RCC_HCLK_DIV4;
+  RCC_ClkInitStruct.APB2CLKDivider = RCC_HCLK_DIV2;
 
-  if (HAL_RCC_ClockConfig(&RCC_ClkInitStruct, FLASH_LATENCY_0) != HAL_OK)
+  if (HAL_RCC_ClockConfig(&RCC_ClkInitStruct, FLASH_LATENCY_3) != HAL_OK)
   {
     Error_Handler();
   }
@@ -288,8 +300,9 @@ uint8_t scanKeypad(void)
             if (row != 0)
             {
                 uint8_t col = i + 1;
-                uint8_t key_values[13] = { 0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12 };
-                result = key_values[row * col];
+
+                result = getResult(row,col);
+                CDC_Transmit_FS(&result, 1);
                 break;
             }
         }
@@ -371,6 +384,40 @@ uint8_t findRow(GPIO_TypeDef* colPort, uint16_t colPin)
     }
 
     return row;
+}
+
+uint8_t getResult(uint8_t row, uint8_t col)
+{
+    uint8_t result = 0;
+
+    switch (row)
+    {
+    case 1:
+        result = col + 48;
+        break;
+    case 2:
+        result = col + 51;
+        break;
+    case 3:
+        result = col + 54;
+    case 4:
+        if (col == 1)
+        {
+            result = 127;
+        }
+        else if (col == 2)
+        {
+            result = 48;
+        }
+        else if (col == 3)
+        {
+            result = 13;
+        }
+    default:
+        result = 0;
+    }
+
+    return result;
 }
 
 void disableRow(GPIO_TypeDef* gpiox, uint16_t pin)

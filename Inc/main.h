@@ -89,7 +89,7 @@ void Error_Handler(void);
 
     uint8_t scanKeypad(void);
     uint8_t findRow(GPIO_TypeDef* gpiox, uint16_t colPin);
-    uint8_t getResult(uint16_t rowPin, uint16_t colPin);
+    uint8_t getResult(uint8_t row, uint8_t col);
     void disableRow(GPIO_TypeDef* gpiox, uint16_t pin);
     void enableRow(GPIO_TypeDef* gpiox, uint16_t pin);
     void setAllRows(void);
