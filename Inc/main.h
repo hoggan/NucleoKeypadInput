@@ -94,10 +94,7 @@ void Error_Handler(void);
     void enableRow(GPIO_TypeDef* gpiox, uint16_t pin);
     void setAllRows(void);
     void resetAllRows(void);
-    GPIO_PinState debounceUser(void);
     GPIO_PinState debounce(GPIO_TypeDef* gpiox, uint16_t pin);
-    void indicate(uint8_t keyPress);
-    void test(uint8_t mode);
 
 /* USER CODE END Private defines */
 

@@ -96,84 +96,32 @@ int main(void)
 
   /* Infinite loop */
   /* USER CODE BEGIN WHILE */
-  GPIO_PinState pinState = GPIO_PIN_RESET;
-  GPIO_PinState userButtonState = GPIO_PIN_RESET;
-  uint8_t activeLED = 0;
+  uint8_t keyNow = 0;
+  uint8_t lastKey = 0;
+  uint8_t txBuffer[2];
+
   resetAllRows();
 
   while (1)
   {
-      int userPress = 0;
-      pinState = debounceUser();
+      keyNow = scanKeypad();
 
-      if (pinState != userButtonState)
+      if (keyNow != lastKey)
       {
-          userButtonState = pinState;
-
-          if (userButtonState == GPIO_PIN_RESET)
-	  {
-              // button press
-              userPress = 1;
-              activeLED++;
-              activeLED = activeLED % 9;
-              //indicate(activeLED);
-
-              /*switch (activeLED)
-              {
-              case 1:
-                  resetAllRows();
-                  HAL_GPIO_WritePin(GPIOD, R1_Pin, GPIO_PIN_SET);
-                  break;
-              case 2:
-                  resetAllRows();                  
-                  HAL_GPIO_WritePin(GPIOD, R2_Pin, GPIO_PIN_SET);
-                  break;
-              case 3:
-                  resetAllRows();                  
-                  HAL_GPIO_WritePin(GPIOD, R3_Pin, GPIO_PIN_SET);
-                  break;
-              case 4:
-                  resetAllRows();                  
-                  HAL_GPIO_WritePin(GPIOD, R4_Pin, GPIO_PIN_SET);
-                  break;
-              default:
-                  resetAllRows();
-                  }*/
-              /*switch (activeLED)
-                {
-                case 1:
-                HAL_GPIO_WritePin(Green_LED_GPIO_Port, Green_LED_Pin, GPIO_PIN_SET);
-                break;
-                case 2:
-                HAL_GPIO_WritePin(Blue_LED_GPIO_Port, Blue_LED_Pin, GPIO_PIN_SET);
-                break;
-                case 3:
-                HAL_GPIO_WritePin(Red_LED_GPIO_Port, Red_LED_Pin, GPIO_PIN_SET);
-                break;
-                default:
-                HAL_GPIO_WritePin(Green_LED_GPIO_Port, Green_LED_Pin, GPIO_PIN_RESET);
-                HAL_GPIO_WritePin(Blue_LED_GPIO_Port, Blue_LED_Pin, GPIO_PIN_RESET);
-                HAL_GPIO_WritePin(Red_LED_GPIO_Port, Red_LED_Pin, GPIO_PIN_RESET);
-                }*/
-	  }
-      }
-
-      //test(activeLED);
-
-      scanKeypad();
-      /*if (userPress == 1)
-      {
-          //CDC_Transmit_FS("Hello ", 6);
-          uint8_t pressedKey = scanKeypad();
-          if (pressedKey != 255)
+          if (keyNow == 0)
           {
-              indicate(pressedKey);
+              txBuffer[0] = lastKey;
+              txBuffer[1] = 48;
           }
           else
           {
-              indicate(0);
+              txBuffer[0] = keyNow;
+              txBuffer[1] = 49;
           }
-          }*/
+
+          CDC_Transmit_FS(txBuffer, 2);
+          lastKey = keyNow;
+      }
 
       HAL_Delay(50);
 
@@ -280,9 +228,9 @@ static void MX_GPIO_Init(void)
 
 uint8_t scanKeypad(void)
 {
-    static GPIO_PinState colState[COLUMNS] = { GPIO_PIN_RESET, GPIO_PIN_RESET, GPIO_PIN_RESET };
+    GPIO_PinState colState[COLUMNS] = { GPIO_PIN_RESET, GPIO_PIN_RESET, GPIO_PIN_RESET };
 
-    uint8_t result = 255;
+    uint8_t result = 0;
     uint16_t colPin[COLUMNS] = { C1_Pin, C2_Pin, C3_Pin };
     GPIO_TypeDef* colPort[COLUMNS] = { C1_GPIO_Port, C2_GPIO_Port, C3_GPIO_Port };
 
@@ -302,7 +250,6 @@ uint8_t scanKeypad(void)
                 uint8_t col = i + 1;
 
                 result = getResult(row,col);
-                CDC_Transmit_FS(&result, 1);
                 break;
             }
         }
@@ -404,7 +351,7 @@ uint8_t getResult(uint8_t row, uint8_t col)
     case 4:
         if (col == 1)
         {
-            result = 127;
+            result = 9;
         }
         else if (col == 2)
         {
@@ -426,26 +373,22 @@ void disableRow(GPIO_TypeDef* gpiox, uint16_t pin)
 {
     GPIO_InitTypeDef GPIO_InitStruct = {0};
 
-    uint64_t moder = gpiox->MODER;
     HAL_GPIO_WritePin(gpiox, pin, GPIO_PIN_RESET);
     GPIO_InitStruct.Pin = pin;
     GPIO_InitStruct.Mode = GPIO_MODE_INPUT;
     GPIO_InitStruct.Pull = GPIO_NOPULL;
     HAL_GPIO_Init(gpiox, &GPIO_InitStruct);
-    moder = gpiox->MODER;
 }
 
 void enableRow(GPIO_TypeDef* gpiox, uint16_t pin)
 {
     GPIO_InitTypeDef GPIO_InitStruct = {0};
 
-    uint64_t moder = gpiox->MODER;
     GPIO_InitStruct.Pin = pin;
     GPIO_InitStruct.Mode = GPIO_MODE_OUTPUT_PP;
     GPIO_InitStruct.Pull = GPIO_NOPULL;
     GPIO_InitStruct.Speed = GPIO_SPEED_FREQ_LOW;
     HAL_GPIO_Init(gpiox, &GPIO_InitStruct);
-    moder = gpiox->MODER;
     HAL_GPIO_WritePin(gpiox, pin, GPIO_PIN_SET);
 }
 
@@ -459,20 +402,6 @@ void resetAllRows(void)
     HAL_GPIO_WritePin(GPIOD, R1_Pin | R2_Pin | R3_Pin | R4_Pin, GPIO_PIN_RESET);
 }
 
-GPIO_PinState debounceUser()
-{
-      GPIO_PinState pinState = GPIO_PIN_RESET;
-
-      if (HAL_GPIO_ReadPin(User_Button_GPIO_Port, User_Button_Pin) == GPIO_PIN_SET)
-      {
-          HAL_Delay(1);
-
-          pinState = HAL_GPIO_ReadPin(User_Button_GPIO_Port, User_Button_Pin);
-      }
-
-      return pinState;
-}
-
 GPIO_PinState debounce(GPIO_TypeDef* gpiox, uint16_t pin)
 {
       GPIO_PinState pinState = GPIO_PIN_RESET;
@@ -484,92 +413,6 @@ GPIO_PinState debounce(GPIO_TypeDef* gpiox, uint16_t pin)
       }
 
       return pinState;
-}
-
-void indicate(uint8_t keypress)
-{
-    if (keypress != 255)
-    {
-        if (keypress & 0b001)
-        {
-            HAL_GPIO_WritePin(Green_LED_GPIO_Port, Green_LED_Pin, GPIO_PIN_SET);
-        }
-        else
-        {
-            HAL_GPIO_WritePin(Green_LED_GPIO_Port, Green_LED_Pin, GPIO_PIN_RESET);
-        }
-
-        if (keypress & 0b010)
-        {
-            HAL_GPIO_WritePin(Blue_LED_GPIO_Port, Blue_LED_Pin, GPIO_PIN_SET);
-        }
-        else
-        {
-            HAL_GPIO_WritePin(Blue_LED_GPIO_Port, Blue_LED_Pin, GPIO_PIN_RESET);
-        }
-
-        if (keypress & 0b100)
-        {
-            HAL_GPIO_WritePin(Red_LED_GPIO_Port, Red_LED_Pin, GPIO_PIN_SET);
-        }
-        else
-        {
-            HAL_GPIO_WritePin(Red_LED_GPIO_Port, Red_LED_Pin, GPIO_PIN_RESET);
-        }
-    }
-    else
-    {
-/*        HAL_GPIO_WritePin(Green_LED_GPIO_Port, Green_LED_Pin, GPIO_PIN_RESET);
-        HAL_GPIO_WritePin(Blue_LED_GPIO_Port, Blue_LED_Pin, GPIO_PIN_RESET);
-        HAL_GPIO_WritePin(Red_LED_GPIO_Port, Red_LED_Pin, GPIO_PIN_RESET);*/
-    }
-}
-
-void test(uint8_t mode)
-{
-    if (mode == 1)
-    {
-        setAllRows();
-        HAL_GPIO_WritePin(Green_LED_GPIO_Port, Green_LED_Pin, debounce(C1_GPIO_Port, C1_Pin));
-        HAL_GPIO_WritePin(Blue_LED_GPIO_Port, Blue_LED_Pin, debounce(C2_GPIO_Port, C2_Pin));
-    }
-    else if (mode == 2)
-    {
-        if ((R1_GPIO_Port->MODER & R1_Pin) == 0) HAL_GPIO_WritePin(Red_LED_GPIO_Port, Red_LED_Pin, GPIO_PIN_SET);
-        R1_GPIO_Port->MODER |= R1_Pin;
-        HAL_GPIO_ReadPin(R1_GPIO_Port, R1_Pin);
-        if (R1_GPIO_Port->MODER & R1_Pin) HAL_GPIO_WritePin(Blue_LED_GPIO_Port, Blue_LED_Pin, GPIO_PIN_SET);
-        R2_GPIO_Port->MODER &= ~R1_Pin;
-        HAL_GPIO_WritePin(R1_GPIO_Port, R1_Pin, GPIO_PIN_SET);
-        if ((R1_GPIO_Port->MODER & R1_Pin) == 0) HAL_GPIO_WritePin(Green_LED_GPIO_Port, Green_LED_Pin, GPIO_PIN_SET);
-    }
-    else if (mode == 3)
-    {
-        HAL_GPIO_WritePin(Green_LED_GPIO_Port, Green_LED_Pin, GPIO_PIN_RESET);
-        HAL_GPIO_WritePin(Blue_LED_GPIO_Port, Blue_LED_Pin, GPIO_PIN_RESET);
-        HAL_GPIO_WritePin(Red_LED_GPIO_Port, Red_LED_Pin, GPIO_PIN_RESET);
-        setAllRows();
-    }
-    else if (mode == 4)
-    {
-        HAL_GPIO_WritePin(Green_LED_GPIO_Port, Green_LED_Pin, debounce(C1_GPIO_Port, C1_Pin));
-        HAL_GPIO_WritePin(Blue_LED_GPIO_Port, Blue_LED_Pin, debounce(C2_GPIO_Port, C2_Pin));
-    }
-    else if (mode == 5)
-    {
-        resetAllRows();
-    }
-    else if (mode == 6)
-    {
-        HAL_GPIO_WritePin(Green_LED_GPIO_Port, Green_LED_Pin, debounce(C1_GPIO_Port, C1_Pin));
-        HAL_GPIO_WritePin(Blue_LED_GPIO_Port, Blue_LED_Pin, debounce(C2_GPIO_Port, C2_Pin));
-    }
-    else if (mode == 7)
-    {
-        HAL_GPIO_WritePin(Green_LED_GPIO_Port, Green_LED_Pin, GPIO_PIN_RESET);
-        HAL_GPIO_WritePin(Blue_LED_GPIO_Port, Blue_LED_Pin, GPIO_PIN_RESET);
-        HAL_GPIO_WritePin(Red_LED_GPIO_Port, Red_LED_Pin, GPIO_PIN_RESET);
-    }
 }
 
 /* USER CODE END 4 */
