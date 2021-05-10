@@ -400,6 +400,7 @@ uint8_t getResult(uint8_t row, uint8_t col)
         break;
     case 3:
         result = col + 54;
+        break;
     case 4:
         if (col == 1)
         {
@@ -413,6 +414,7 @@ uint8_t getResult(uint8_t row, uint8_t col)
         {
             result = 13;
         }
+        break;
     default:
         result = 0;
     }
