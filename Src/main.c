@@ -98,7 +98,20 @@ int main(void)
   /* USER CODE BEGIN WHILE */
   uint8_t keyNow = 0;
   uint8_t lastKey = 0;
-  uint8_t txBuffer[2];
+  uint8_t txBuffer[11];
+
+  // CMD
+  txBuffer[0] = 1;
+  // Length
+  txBuffer[1] = 0;
+  txBuffer[2] = 0;
+  txBuffer[3] = 0;
+  txBuffer[4] = 6;
+  // CRC32
+  txBuffer[7] = 0;
+  txBuffer[8] = 0;
+  txBuffer[9] = 0;
+  txBuffer[10] = 0;
 
   resetAllRows();
 
@@ -110,16 +123,17 @@ int main(void)
       {
           if (keyNow == 0)
           {
-              txBuffer[0] = lastKey;
-              txBuffer[1] = 48;
+              txBuffer[5] = lastKey;
+              txBuffer[6] = 0;
           }
           else
           {
-              txBuffer[0] = keyNow;
-              txBuffer[1] = 49;
+              txBuffer[5] = keyNow;
+              txBuffer[6] = 1;
           }
 
-          CDC_Transmit_FS(txBuffer, 2);
+          *(uint32_t *)&txBuffer[7] = crc_32(txBuffer, 7);
+          CDC_Transmit_FS(txBuffer, 11);
           lastKey = keyNow;
       }
 
@@ -322,27 +336,16 @@ uint8_t getResult(uint8_t row, uint8_t col)
     switch (row)
     {
     case 1:
-        result = col + 48;
+        result = col;
         break;
     case 2:
-        result = col + 51;
+        result = col + 3;
         break;
     case 3:
-        result = col + 54;
+        result = col + 6;
         break;
     case 4:
-        if (col == 1)
-        {
-            result = 9;
-        }
-        else if (col == 2)
-        {
-            result = 48;
-        }
-        else if (col == 3)
-        {
-            result = 13;
-        }
+        result = col + 9;
         break;
     default:
         result = 0;
