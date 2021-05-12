@@ -96,7 +96,6 @@ void Error_Handler(void);
     void enableRow(GPIO_TypeDef* gpiox, uint16_t pin);
     void setAllRows(void);
     void resetAllRows(void);
-    GPIO_PinState debounce(GPIO_TypeDef* gpiox, uint16_t pin);
 
 /* USER CODE END Private defines */
 

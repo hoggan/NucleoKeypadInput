@@ -101,6 +101,7 @@ int main(void)
   MX_TIM1_Init();
   /* USER CODE BEGIN 2 */
 
+  HAL_GPIO_WritePin(GreenLED_GPIO_Port, GreenLED_Pin, GPIO_PIN_SET);
   setAllRows();
 
   /* USER CODE END 2 */
@@ -256,53 +257,78 @@ static void MX_GPIO_Init(void)
 
 void HAL_TIM_PeriodElapsedCallback(TIM_HandleTypeDef *htim)
 {
+    HAL_GPIO_WritePin(BlueLED_GPIO_Port, BlueLED_Pin, GPIO_PIN_RESET);
     HAL_TIM_Base_Stop_IT(&htim1);
 
-    // CMD
-    txBuffer[0] = 1;
-    // Length
-    txBuffer[1] = 0;
-    txBuffer[2] = 0;
-    txBuffer[3] = 0;
-    txBuffer[4] = 6;
-    // CRC32
-    txBuffer[7] = 0;
-    txBuffer[8] = 0;
-    txBuffer[9] = 0;
-    txBuffer[10] = 0;
-
-    GPIO_PinState pinState = HAL_GPIO_ReadPin(colPort[activeColumn], colPin[activeColumn]);
-
-    if (activeKey == 0)
+    if (activeColumn != 0)
     {
-        // Key just pressed
-        if (pinState == GPIO_PIN_SET)
-        {
-            activeKey = scanRows();
+        uint8_t col = activeColumn - 1;
 
-            if (activeKey != 0)
+        // CMD
+        txBuffer[0] = 1;
+        // Length
+        txBuffer[1] = 0;
+        txBuffer[2] = 0;
+        txBuffer[3] = 0;
+        txBuffer[4] = 6;
+        // CRC32
+        txBuffer[7] = 0;
+        txBuffer[8] = 0;
+        txBuffer[9] = 0;
+        txBuffer[10] = 0;
+
+        GPIO_PinState pinState = HAL_GPIO_ReadPin(colPort[col], colPin[col]);
+
+        if (activeKey == 0)
+        {
+            // Key just pressed
+            if (pinState == GPIO_PIN_SET)
             {
-                txBuffer[5] = activeKey;
-                txBuffer[6] = 1;
-                *(uint32_t *)&txBuffer[7] = crc_32(txBuffer, 7);
-                CDC_Transmit_FS(txBuffer, 11);
-                HAL_TIM_Base_Start_IT(&htim1);
+                activeKey = scanRows();
+
+                if (activeKey != 0)
+                {
+                    txBuffer[5] = activeKey;
+                    txBuffer[6] = 1;
+                    *(uint32_t *)&txBuffer[7] = crc_32(txBuffer, 7);
+                    CDC_Transmit_FS(txBuffer, 11);
+                    HAL_GPIO_WritePin(BlueLED_GPIO_Port, BlueLED_Pin, GPIO_PIN_SET);
+                    HAL_TIM_Base_Start_IT(&htim1);
+                }
+            }
+            else // Noise?
+            {
+                activeKey = 0;
+                activeColumn = 0;
+                HAL_GPIO_WritePin(GreenLED_GPIO_Port, GreenLED_Pin, GPIO_PIN_SET);
+                HAL_NVIC_EnableIRQ(EXTI9_5_IRQn);
             }
         }
-    }
-    else if (pinState == GPIO_PIN_SET)
-    {
-        // Key previously pressed and is still pressed.
-        HAL_TIM_Base_Start_IT(&htim1);
+        else if (pinState == GPIO_PIN_SET)
+        {
+            // Key previously pressed and is still pressed.
+            HAL_GPIO_WritePin(BlueLED_GPIO_Port, BlueLED_Pin, GPIO_PIN_SET);
+            HAL_TIM_Base_Start_IT(&htim1);
+        }
+        else
+        {
+            // Key previously pressed and has been released.
+            txBuffer[5] = activeKey;
+            txBuffer[6] = 0;
+            activeKey = 0;
+            *(uint32_t *)&txBuffer[7] = crc_32(txBuffer, 7);
+            CDC_Transmit_FS(txBuffer, 11);
+
+            activeColumn = 0;
+            HAL_GPIO_WritePin(GreenLED_GPIO_Port, GreenLED_Pin, GPIO_PIN_SET);
+            HAL_NVIC_EnableIRQ(EXTI9_5_IRQn);
+        }
     }
     else
     {
-        // Key previously pressed and has been released.
-        txBuffer[5] = activeKey;
-        txBuffer[6] = 0;
         activeKey = 0;
-        *(uint32_t *)&txBuffer[7] = crc_32(txBuffer, 7);
-        CDC_Transmit_FS(txBuffer, 11);
+        HAL_GPIO_WritePin(GreenLED_GPIO_Port, GreenLED_Pin, GPIO_PIN_SET);
+        HAL_NVIC_EnableIRQ(EXTI9_5_IRQn);
     }
 }
 
@@ -311,24 +337,29 @@ void HAL_GPIO_EXTI_Callback(uint16_t GPIO_Pin)
     switch (GPIO_Pin)
     {
     case C1_Pin:
-        HAL_GPIO_TogglePin(GreenLED_GPIO_Port, GreenLED_Pin);
+        //HAL_GPIO_TogglePin(GreenLED_GPIO_Port, GreenLED_Pin);
         activeColumn = 1;
         break;
     case C2_Pin:
-        HAL_GPIO_TogglePin(BlueLED_GPIO_Port, BlueLED_Pin);
+        //HAL_GPIO_TogglePin(BlueLED_GPIO_Port, BlueLED_Pin);
         activeColumn = 2;
         break;
     case C3_Pin:
-        HAL_GPIO_TogglePin(RedLED_GPIO_Port, RedLED_Pin);
+        //HAL_GPIO_TogglePin(RedLED_GPIO_Port, RedLED_Pin);
         activeColumn = 3;
         break;
     default:
         __NOP();
     }
 
-    if (activeColumn)
+    HAL_GPIO_TogglePin(RedLED_GPIO_Port, RedLED_Pin);
+
+    if (activeColumn != 0)
     {
+        HAL_GPIO_WritePin(BlueLED_GPIO_Port, BlueLED_Pin, GPIO_PIN_SET);
         HAL_TIM_Base_Start_IT(&htim1);
+        HAL_GPIO_WritePin(GreenLED_GPIO_Port, GreenLED_Pin, GPIO_PIN_RESET);
+        HAL_NVIC_DisableIRQ(EXTI9_5_IRQn);
     }
 }
 
@@ -338,27 +369,22 @@ uint8_t scanRows(void)
 
     if (activeColumn != 0)
     {
-    }
-    //setAllRows();
-    HAL_Delay(1);
+        uint8_t col = activeColumn - 1;
 
-    uint8_t i = 
-    GPIO_PinState pinState = HAL_GPIO_ReadPin(colPort[activeColumn], colPin[activeColumn]);
+        GPIO_PinState pinState = HAL_GPIO_ReadPin(colPort[col], colPin[col]);
 
-    if ((pinState == GPIO_PIN_SET) && (activeKey == 0))
-    {
-        uint8_t row = findRow(colPort[activeColumn], colPin[activeColumn]);
-
-        if (row != 0)
+        // activeKey == 0 ignores new key presses while one is being depressed.
+        if ((pinState == GPIO_PIN_SET) && (activeKey == 0))
         {
-            uint8_t col = i + 1;
+            // Key still pressed after 50 ms, find row to determine which one.
+            uint8_t row = findRow(colPort[col], colPin[col]);
 
-            result = getResult(row,col);
-            break;
+            if (row != 0)
+            {
+                result = getResult(row, activeColumn);
+            }
         }
     }
-
-    //resetAllRows();
 
     return result;
 }
@@ -371,11 +397,12 @@ uint8_t findRow(GPIO_TypeDef* colPort, uint16_t colPin)
     disableRow(R2_GPIO_Port, R2_Pin);
     disableRow(R3_GPIO_Port, R3_Pin);
     disableRow(R4_GPIO_Port, R4_Pin);
-    HAL_Delay(1);
+    //HAL_Delay(1);
     pinState = HAL_GPIO_ReadPin(colPort, colPin);
     enableRow(R2_GPIO_Port, R2_Pin);
     enableRow(R3_GPIO_Port, R3_Pin);
     enableRow(R4_GPIO_Port, R4_Pin);
+    setAllRows();
 
     if (pinState == GPIO_PIN_SET)
     {
@@ -387,11 +414,12 @@ uint8_t findRow(GPIO_TypeDef* colPort, uint16_t colPin)
         disableRow(R1_GPIO_Port, R1_Pin);
         disableRow(R3_GPIO_Port, R3_Pin);
         disableRow(R4_GPIO_Port, R4_Pin);
-        HAL_Delay(1);
+        //HAL_Delay(1);
         pinState = HAL_GPIO_ReadPin(colPort, colPin);
         enableRow(R1_GPIO_Port, R1_Pin);
         enableRow(R3_GPIO_Port, R3_Pin);
         enableRow(R4_GPIO_Port, R4_Pin);
+        setAllRows();
 
         if (pinState == GPIO_PIN_SET)
         {
@@ -404,11 +432,12 @@ uint8_t findRow(GPIO_TypeDef* colPort, uint16_t colPin)
         disableRow(R1_GPIO_Port, R1_Pin);
         disableRow(R2_GPIO_Port, R2_Pin);
         disableRow(R4_GPIO_Port, R4_Pin);
-        HAL_Delay(1);
+        setAllRows();//HAL_Delay(1);
         pinState = HAL_GPIO_ReadPin(colPort, colPin);
         enableRow(R1_GPIO_Port, R1_Pin);
         enableRow(R2_GPIO_Port, R2_Pin);
         enableRow(R4_GPIO_Port, R4_Pin);
+        setAllRows();
 
         if (pinState == GPIO_PIN_SET)
         {
@@ -421,11 +450,12 @@ uint8_t findRow(GPIO_TypeDef* colPort, uint16_t colPin)
         disableRow(R1_GPIO_Port, R1_Pin);
         disableRow(R2_GPIO_Port, R2_Pin);
         disableRow(R3_GPIO_Port, R3_Pin);
-        HAL_Delay(1);
+        //HAL_Delay(1);
         pinState = HAL_GPIO_ReadPin(colPort, colPin);
         enableRow(R1_GPIO_Port, R1_Pin);
         enableRow(R2_GPIO_Port, R2_Pin);
         enableRow(R3_GPIO_Port, R3_Pin);
+        setAllRows();
 
         if (pinState == GPIO_PIN_SET)
         {
@@ -498,19 +528,6 @@ void resetAllRows(void)
     HAL_GPIO_WritePin(R2_GPIO_Port, R2_Pin, GPIO_PIN_RESET);
     HAL_GPIO_WritePin(R3_GPIO_Port, R3_Pin, GPIO_PIN_RESET);
     HAL_GPIO_WritePin(R4_GPIO_Port, R4_Pin, GPIO_PIN_RESET);
-}
-
-GPIO_PinState debounce(GPIO_TypeDef* gpiox, uint16_t pin)
-{
-      GPIO_PinState pinState = GPIO_PIN_RESET;
-
-      if (HAL_GPIO_ReadPin(gpiox, pin) == GPIO_PIN_SET)
-      {
-          HAL_Delay(1);
-          pinState = HAL_GPIO_ReadPin(gpiox, pin);
-      }
-
-      return pinState;
 }
 
 /* USER CODE END 4 */
