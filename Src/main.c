@@ -66,6 +66,7 @@ uint8_t activeKey = 0;
 uint8_t txBuffer[11];
 uint16_t colPin[COLUMNS] = { C1_Pin, C2_Pin, C3_Pin };
 GPIO_TypeDef* colPort[COLUMNS] = { C1_GPIO_Port, C2_GPIO_Port, C3_GPIO_Port };
+uint16_t keypress = 0;
 
 /* USER CODE END 0 */
 
@@ -102,6 +103,7 @@ int main(void)
   /* USER CODE BEGIN 2 */
 
   HAL_GPIO_WritePin(GreenLED_GPIO_Port, GreenLED_Pin, GPIO_PIN_SET);
+  HAL_GPIO_WritePin(IRQ_GPIO_Port, IRQ_Pin, GPIO_PIN_SET);
   setAllRows();
 
   /* USER CODE END 2 */
@@ -110,6 +112,22 @@ int main(void)
   /* USER CODE BEGIN WHILE */
   while (1)
   {
+      if (keypress == 1)
+      {
+          if (handleKeypress() == 1)
+          {
+              HAL_GPIO_WritePin(BlueLED_GPIO_Port, BlueLED_Pin, GPIO_PIN_SET);
+              HAL_GPIO_WritePin(BL_GPIO_Port, BL_Pin, GPIO_PIN_SET);
+              HAL_TIM_Base_Init(&htim1);
+              HAL_TIM_Base_Start_IT(&htim1);
+          }
+          else
+          {
+              HAL_GPIO_WritePin(GreenLED_GPIO_Port, GreenLED_Pin, GPIO_PIN_SET);
+              HAL_GPIO_WritePin(IRQ_GPIO_Port, IRQ_Pin, GPIO_PIN_SET);
+              HAL_NVIC_EnableIRQ(EXTI9_5_IRQn);
+          }
+      }
     /* USER CODE END WHILE */
 
     /* USER CODE BEGIN 3 */
@@ -223,7 +241,7 @@ static void MX_GPIO_Init(void)
 
   /*Configure GPIO pin Output Level */
   HAL_GPIO_WritePin(GPIOD, R3_Pin|R2_Pin|R1_Pin|R4_Pin
-                          |BL_Pin, GPIO_PIN_RESET);
+                          |BL_Pin|IRQ_Pin, GPIO_PIN_RESET);
 
   /*Configure GPIO pins : C1_Pin C2_Pin C3_Pin */
   GPIO_InitStruct.Pin = C1_Pin|C2_Pin|C3_Pin;
@@ -239,9 +257,9 @@ static void MX_GPIO_Init(void)
   HAL_GPIO_Init(GPIOB, &GPIO_InitStruct);
 
   /*Configure GPIO pins : R3_Pin R2_Pin R1_Pin R4_Pin
-                           BL_Pin */
+                           BL_Pin IRQ_Pin */
   GPIO_InitStruct.Pin = R3_Pin|R2_Pin|R1_Pin|R4_Pin
-                          |BL_Pin;
+                          |BL_Pin|IRQ_Pin;
   GPIO_InitStruct.Mode = GPIO_MODE_OUTPUT_PP;
   GPIO_InitStruct.Pull = GPIO_NOPULL;
   GPIO_InitStruct.Speed = GPIO_SPEED_FREQ_LOW;
@@ -258,7 +276,58 @@ static void MX_GPIO_Init(void)
 void HAL_TIM_PeriodElapsedCallback(TIM_HandleTypeDef *htim)
 {
     HAL_GPIO_WritePin(BlueLED_GPIO_Port, BlueLED_Pin, GPIO_PIN_RESET);
+    HAL_GPIO_WritePin(BL_GPIO_Port, BL_Pin, GPIO_PIN_RESET);
     HAL_TIM_Base_Stop_IT(&htim1);
+
+    if (keypress == 0) keypress = 1;
+}
+
+void HAL_GPIO_EXTI_Callback(uint16_t GPIO_Pin)
+{
+    HAL_GPIO_WritePin(IRQ_GPIO_Port, IRQ_Pin, GPIO_PIN_RESET);
+    HAL_GPIO_WritePin(GreenLED_GPIO_Port, GreenLED_Pin, GPIO_PIN_RESET);
+    HAL_NVIC_DisableIRQ(EXTI9_5_IRQn);
+
+    switch (GPIO_Pin)
+    {
+    case C1_Pin:
+        //HAL_GPIO_TogglePin(GreenLED_GPIO_Port, GreenLED_Pin);
+        activeColumn = 1;
+        break;
+    case C2_Pin:
+        //HAL_GPIO_TogglePin(BlueLED_GPIO_Port, BlueLED_Pin);
+        activeColumn = 2;
+        break;
+    case C3_Pin:
+        //HAL_GPIO_TogglePin(RedLED_GPIO_Port, RedLED_Pin);
+        activeColumn = 3;
+        break;
+    default:
+        __NOP();
+    }
+
+    if (activeColumn != 0)
+    {
+        //HAL_GPIO_WritePin(RedLED_GPIO_Port, RedLED_Pin, GPIO_PIN_SET);
+
+        HAL_GPIO_WritePin(BlueLED_GPIO_Port, BlueLED_Pin, GPIO_PIN_SET);
+        HAL_GPIO_WritePin(BL_GPIO_Port, BL_Pin, GPIO_PIN_SET);
+        HAL_TIM_Base_Init(&htim1);
+        HAL_TIM_Base_Start_IT(&htim1);
+    }
+    else
+    {
+        HAL_GPIO_WritePin(GreenLED_GPIO_Port, GreenLED_Pin, GPIO_PIN_SET);
+        HAL_GPIO_WritePin(IRQ_GPIO_Port, IRQ_Pin, GPIO_PIN_SET);
+        HAL_NVIC_EnableIRQ(EXTI9_5_IRQn);
+    }
+}
+
+uint16_t handleKeypress(void)
+{
+    int16_t holdRelease = 0; // 0 Release
+
+    keypress = 0;
 
     if (activeColumn != 0)
     {
@@ -288,79 +357,38 @@ void HAL_TIM_PeriodElapsedCallback(TIM_HandleTypeDef *htim)
 
                 if (activeKey != 0)
                 {
+                    HAL_GPIO_WritePin(RedLED_GPIO_Port, RedLED_Pin, GPIO_PIN_SET);
                     txBuffer[5] = activeKey;
                     txBuffer[6] = 1;
                     *(uint32_t *)&txBuffer[7] = crc_32(txBuffer, 7);
                     CDC_Transmit_FS(txBuffer, 11);
-                    HAL_GPIO_WritePin(BlueLED_GPIO_Port, BlueLED_Pin, GPIO_PIN_SET);
-                    HAL_TIM_Base_Start_IT(&htim1);
+                    holdRelease = 1;
                 }
-            }
-            else // Noise?
-            {
-                activeKey = 0;
-                activeColumn = 0;
-                HAL_GPIO_WritePin(GreenLED_GPIO_Port, GreenLED_Pin, GPIO_PIN_SET);
-                HAL_NVIC_EnableIRQ(EXTI9_5_IRQn);
             }
         }
         else if (pinState == GPIO_PIN_SET)
         {
-            // Key previously pressed and is still pressed.
-            HAL_GPIO_WritePin(BlueLED_GPIO_Port, BlueLED_Pin, GPIO_PIN_SET);
-            HAL_TIM_Base_Start_IT(&htim1);
+            holdRelease = 1;
         }
         else
         {
             // Key previously pressed and has been released.
+            HAL_GPIO_WritePin(RedLED_GPIO_Port, RedLED_Pin, GPIO_PIN_RESET);
+
             txBuffer[5] = activeKey;
             txBuffer[6] = 0;
-            activeKey = 0;
             *(uint32_t *)&txBuffer[7] = crc_32(txBuffer, 7);
             CDC_Transmit_FS(txBuffer, 11);
-
-            activeColumn = 0;
-            HAL_GPIO_WritePin(GreenLED_GPIO_Port, GreenLED_Pin, GPIO_PIN_SET);
-            HAL_NVIC_EnableIRQ(EXTI9_5_IRQn);
         }
     }
-    else
+
+    if (holdRelease == 0) // Key released
     {
         activeKey = 0;
-        HAL_GPIO_WritePin(GreenLED_GPIO_Port, GreenLED_Pin, GPIO_PIN_SET);
-        HAL_NVIC_EnableIRQ(EXTI9_5_IRQn);
-    }
-}
-
-void HAL_GPIO_EXTI_Callback(uint16_t GPIO_Pin)
-{
-    switch (GPIO_Pin)
-    {
-    case C1_Pin:
-        //HAL_GPIO_TogglePin(GreenLED_GPIO_Port, GreenLED_Pin);
-        activeColumn = 1;
-        break;
-    case C2_Pin:
-        //HAL_GPIO_TogglePin(BlueLED_GPIO_Port, BlueLED_Pin);
-        activeColumn = 2;
-        break;
-    case C3_Pin:
-        //HAL_GPIO_TogglePin(RedLED_GPIO_Port, RedLED_Pin);
-        activeColumn = 3;
-        break;
-    default:
-        __NOP();
+        activeColumn = 0;
     }
 
-    HAL_GPIO_TogglePin(RedLED_GPIO_Port, RedLED_Pin);
-
-    if (activeColumn != 0)
-    {
-        HAL_GPIO_WritePin(BlueLED_GPIO_Port, BlueLED_Pin, GPIO_PIN_SET);
-        HAL_TIM_Base_Start_IT(&htim1);
-        HAL_GPIO_WritePin(GreenLED_GPIO_Port, GreenLED_Pin, GPIO_PIN_RESET);
-        HAL_NVIC_DisableIRQ(EXTI9_5_IRQn);
-    }
+    return holdRelease;
 }
 
 uint8_t scanRows(void)
@@ -397,6 +425,7 @@ uint8_t findRow(GPIO_TypeDef* colPort, uint16_t colPin)
     disableRow(R2_GPIO_Port, R2_Pin);
     disableRow(R3_GPIO_Port, R3_Pin);
     disableRow(R4_GPIO_Port, R4_Pin);
+    HAL_GPIO_WritePin(R1_GPIO_Port, R1_Pin, GPIO_PIN_SET);
     //HAL_Delay(1);
     pinState = HAL_GPIO_ReadPin(colPort, colPin);
     enableRow(R2_GPIO_Port, R2_Pin);
@@ -414,6 +443,7 @@ uint8_t findRow(GPIO_TypeDef* colPort, uint16_t colPin)
         disableRow(R1_GPIO_Port, R1_Pin);
         disableRow(R3_GPIO_Port, R3_Pin);
         disableRow(R4_GPIO_Port, R4_Pin);
+        HAL_GPIO_WritePin(R2_GPIO_Port, R2_Pin, GPIO_PIN_SET);
         //HAL_Delay(1);
         pinState = HAL_GPIO_ReadPin(colPort, colPin);
         enableRow(R1_GPIO_Port, R1_Pin);
@@ -432,7 +462,8 @@ uint8_t findRow(GPIO_TypeDef* colPort, uint16_t colPin)
         disableRow(R1_GPIO_Port, R1_Pin);
         disableRow(R2_GPIO_Port, R2_Pin);
         disableRow(R4_GPIO_Port, R4_Pin);
-        setAllRows();//HAL_Delay(1);
+        HAL_GPIO_WritePin(R3_GPIO_Port, R3_Pin, GPIO_PIN_SET);
+        //HAL_Delay(1);
         pinState = HAL_GPIO_ReadPin(colPort, colPin);
         enableRow(R1_GPIO_Port, R1_Pin);
         enableRow(R2_GPIO_Port, R2_Pin);
@@ -450,6 +481,7 @@ uint8_t findRow(GPIO_TypeDef* colPort, uint16_t colPin)
         disableRow(R1_GPIO_Port, R1_Pin);
         disableRow(R2_GPIO_Port, R2_Pin);
         disableRow(R3_GPIO_Port, R3_Pin);
+        HAL_GPIO_WritePin(R4_GPIO_Port, R4_Pin, GPIO_PIN_SET);
         //HAL_Delay(1);
         pinState = HAL_GPIO_ReadPin(colPort, colPin);
         enableRow(R1_GPIO_Port, R1_Pin);
@@ -540,7 +572,7 @@ void Error_Handler(void)
 {
   /* USER CODE BEGIN Error_Handler_Debug */
   /* User can add his own implementation to report the HAL error return state */
-  __disable_irq();
+  __disable_irq();
   while (1)
   {
   }

@@ -82,6 +82,8 @@ void Error_Handler(void);
 #define R4_GPIO_Port GPIOD
 #define BL_Pin GPIO_PIN_3
 #define BL_GPIO_Port GPIOD
+#define IRQ_Pin GPIO_PIN_4
+#define IRQ_GPIO_Port GPIOD
 #define BlueLED_Pin GPIO_PIN_7
 #define BlueLED_GPIO_Port GPIOB
 /* USER CODE BEGIN Private defines */
@@ -89,6 +91,7 @@ void Error_Handler(void);
 #define COLUMNS 3
 #define ROWS    5
 
+    uint16_t handleKeypress(void);
     uint8_t scanRows(void);
     uint8_t findRow(GPIO_TypeDef* gpiox, uint16_t colPin);
     uint8_t getResult(uint8_t row, uint8_t col);
