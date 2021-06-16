@@ -32,6 +32,8 @@
 /* Private typedef -----------------------------------------------------------*/
 /* USER CODE BEGIN PTD */
 
+typedef enum KeyState { keyReleased, keyPressed } KeyState;
+
 /* USER CODE END PTD */
 
 /* Private define ------------------------------------------------------------*/
@@ -48,6 +50,13 @@ TIM_HandleTypeDef htim1;
 
 /* USER CODE BEGIN PV */
 
+uint8_t activeColumn = 0;
+uint8_t activeKey = 0;
+uint8_t txBuffer[11];
+uint16_t colPin[COLUMNS] = { C1_Pin, C2_Pin, C3_Pin };
+GPIO_TypeDef* colPort[COLUMNS] = { C1_GPIO_Port, C2_GPIO_Port, C3_GPIO_Port };
+KeyState keyState = keyReleased;
+
 /* USER CODE END PV */
 
 /* Private function prototypes -----------------------------------------------*/
@@ -60,13 +69,6 @@ static void MX_TIM1_Init(void);
 
 /* Private user code ---------------------------------------------------------*/
 /* USER CODE BEGIN 0 */
-
-uint8_t activeColumn = 0;
-uint8_t activeKey = 0;
-uint8_t txBuffer[11];
-uint16_t colPin[COLUMNS] = { C1_Pin, C2_Pin, C3_Pin };
-GPIO_TypeDef* colPort[COLUMNS] = { C1_GPIO_Port, C2_GPIO_Port, C3_GPIO_Port };
-uint16_t keypress = 0;
 
 /* USER CODE END 0 */
 
@@ -112,18 +114,16 @@ int main(void)
   /* USER CODE BEGIN WHILE */
   while (1)
   {
-      if (keypress == 1)
+      if (keyState == keyPressed)
       {
           if (handleKeypress() == 1)
           {
-              HAL_GPIO_WritePin(BlueLED_GPIO_Port, BlueLED_Pin, GPIO_PIN_SET);
               HAL_GPIO_WritePin(BL_GPIO_Port, BL_Pin, GPIO_PIN_SET);
               HAL_TIM_Base_Init(&htim1);
               HAL_TIM_Base_Start_IT(&htim1);
           }
           else
           {
-              HAL_GPIO_WritePin(GreenLED_GPIO_Port, GreenLED_Pin, GPIO_PIN_SET);
               HAL_GPIO_WritePin(IRQ_GPIO_Port, IRQ_Pin, GPIO_PIN_SET);
               HAL_NVIC_EnableIRQ(EXTI9_5_IRQn);
           }
@@ -275,11 +275,10 @@ static void MX_GPIO_Init(void)
 
 void HAL_TIM_PeriodElapsedCallback(TIM_HandleTypeDef *htim)
 {
-    HAL_GPIO_WritePin(BlueLED_GPIO_Port, BlueLED_Pin, GPIO_PIN_RESET);
     HAL_GPIO_WritePin(BL_GPIO_Port, BL_Pin, GPIO_PIN_RESET);
     HAL_TIM_Base_Stop_IT(&htim1);
 
-    if (keypress == 0) keypress = 1;
+    if (keyState == keyReleased) keyState = keyPressed;
 }
 
 void HAL_GPIO_EXTI_Callback(uint16_t GPIO_Pin)
@@ -291,15 +290,12 @@ void HAL_GPIO_EXTI_Callback(uint16_t GPIO_Pin)
     switch (GPIO_Pin)
     {
     case C1_Pin:
-        //HAL_GPIO_TogglePin(GreenLED_GPIO_Port, GreenLED_Pin);
         activeColumn = 1;
         break;
     case C2_Pin:
-        //HAL_GPIO_TogglePin(BlueLED_GPIO_Port, BlueLED_Pin);
         activeColumn = 2;
         break;
     case C3_Pin:
-        //HAL_GPIO_TogglePin(RedLED_GPIO_Port, RedLED_Pin);
         activeColumn = 3;
         break;
     default:
@@ -308,9 +304,6 @@ void HAL_GPIO_EXTI_Callback(uint16_t GPIO_Pin)
 
     if (activeColumn != 0)
     {
-        //HAL_GPIO_WritePin(RedLED_GPIO_Port, RedLED_Pin, GPIO_PIN_SET);
-
-        HAL_GPIO_WritePin(BlueLED_GPIO_Port, BlueLED_Pin, GPIO_PIN_SET);
         HAL_GPIO_WritePin(BL_GPIO_Port, BL_Pin, GPIO_PIN_SET);
         HAL_TIM_Base_Init(&htim1);
         HAL_TIM_Base_Start_IT(&htim1);
@@ -327,7 +320,7 @@ uint16_t handleKeypress(void)
 {
     int16_t holdRelease = 0; // 0 Release
 
-    keypress = 0;
+    keyState = keyReleased;
 
     if (activeColumn != 0)
     {
@@ -357,7 +350,6 @@ uint16_t handleKeypress(void)
 
                 if (activeKey != 0)
                 {
-                    HAL_GPIO_WritePin(RedLED_GPIO_Port, RedLED_Pin, GPIO_PIN_SET);
                     txBuffer[5] = activeKey;
                     txBuffer[6] = 1;
                     *(uint32_t *)&txBuffer[7] = crc_32(txBuffer, 7);
@@ -373,8 +365,6 @@ uint16_t handleKeypress(void)
         else
         {
             // Key previously pressed and has been released.
-            HAL_GPIO_WritePin(RedLED_GPIO_Port, RedLED_Pin, GPIO_PIN_RESET);
-
             txBuffer[5] = activeKey;
             txBuffer[6] = 0;
             *(uint32_t *)&txBuffer[7] = crc_32(txBuffer, 7);
