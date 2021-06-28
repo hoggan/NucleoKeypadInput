@@ -59,44 +59,54 @@ void Error_Handler(void);
 /* USER CODE END EFP */
 
 /* Private defines -----------------------------------------------------------*/
-#define C1_Pin GPIO_PIN_5
-#define C1_GPIO_Port GPIOE
-#define C1_EXTI_IRQn EXTI9_5_IRQn
-#define C2_Pin GPIO_PIN_6
-#define C2_GPIO_Port GPIOE
-#define C2_EXTI_IRQn EXTI9_5_IRQn
+#define COL1_Pin GPIO_PIN_5
+#define COL1_GPIO_Port GPIOE
+#define COL1_EXTI_IRQn EXTI9_5_IRQn
+#define COL2_Pin GPIO_PIN_6
+#define COL2_GPIO_Port GPIOE
+#define COL2_EXTI_IRQn EXTI9_5_IRQn
+#define USER_Pin GPIO_PIN_13
+#define USER_GPIO_Port GPIOC
+#define USER_EXTI_IRQn EXTI15_10_IRQn
 #define GreenLED_Pin GPIO_PIN_0
 #define GreenLED_GPIO_Port GPIOB
-#define C3_Pin GPIO_PIN_7
-#define C3_GPIO_Port GPIOE
-#define C3_EXTI_IRQn EXTI9_5_IRQn
+#define COL3_Pin GPIO_PIN_7
+#define COL3_GPIO_Port GPIOE
+#define COL3_EXTI_IRQn EXTI9_5_IRQn
 #define RedLED_Pin GPIO_PIN_14
 #define RedLED_GPIO_Port GPIOB
-#define R3_Pin GPIO_PIN_11
-#define R3_GPIO_Port GPIOD
-#define R2_Pin GPIO_PIN_12
-#define R2_GPIO_Port GPIOD
-#define R1_Pin GPIO_PIN_13
-#define R1_GPIO_Port GPIOD
-#define R4_Pin GPIO_PIN_2
-#define R4_GPIO_Port GPIOD
+#define ROW3_Pin GPIO_PIN_11
+#define ROW3_GPIO_Port GPIOD
+#define ROW2_Pin GPIO_PIN_12
+#define ROW2_GPIO_Port GPIOD
+#define ROW1_Pin GPIO_PIN_13
+#define ROW1_GPIO_Port GPIOD
+#define ROW4_Pin GPIO_PIN_2
+#define ROW4_GPIO_Port GPIOD
 #define BL_Pin GPIO_PIN_3
 #define BL_GPIO_Port GPIOD
-#define IRQ_Pin GPIO_PIN_4
+#define TMR_Pin GPIO_PIN_4
+#define TMR_GPIO_Port GPIOD
+#define IRQ_Pin GPIO_PIN_5
 #define IRQ_GPIO_Port GPIOD
 #define BlueLED_Pin GPIO_PIN_7
 #define BlueLED_GPIO_Port GPIOB
 /* USER CODE BEGIN Private defines */
 
 #define COLUMNS 3
-#define ROWS    5
-
-    uint16_t handleKeypress(void);
-    uint8_t scanRows(void);
-    uint8_t findRow(GPIO_TypeDef* gpiox, uint16_t colPin);
-    uint8_t getResult(uint8_t row, uint8_t col);
-    void disableRow(GPIO_TypeDef* gpiox, uint16_t pin);
-    void enableRow(GPIO_TypeDef* gpiox, uint16_t pin);
+#define ROWS    4//5
+    typedef enum RowIndex { ROW1, ROW2, ROW3, ROW4, ROW5, ROW_INVAL } RowIndex;
+    typedef enum ColIndex { COL1, COL2, COL3, COL_INVAL } ColIndex;
+    void handleKeypress(void);
+    uint8_t scanRows();
+    GPIO_PinState debounce(void);
+    uint8_t findRow();
+    GPIO_PinState readRow(RowIndex rowIndex);
+    uint8_t getResult(uint8_t rowPin);
+    void disableAllBut(RowIndex rowIndex);
+    void enableAllRows();
+    void disableRow(RowIndex rowIndex);
+    void enableRow(RowIndex rowIndex);
     void setAllRows(void);
     void resetAllRows(void);
 
